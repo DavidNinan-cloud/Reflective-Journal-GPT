@@ -74,7 +74,7 @@ def read_root():
 # ----- FastAPI route -----
 
 @app.post("/create_journal_entry")
-def post_journal(entry: JournalEntry):
+def post_journal(entry: create_journal_entry):
     allowed_states = ["Motivated", "Happy", "Neutral", "Sad", "Tired"]
     if entry.emotional_state not in allowed_states:
         raise HTTPException(
