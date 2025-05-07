@@ -25,6 +25,8 @@ headers = {
 }
 
 def create_journal_entry(date, title, entry, grammar_fixes, emotional_state):
+    print("🚀 Starting create_journal_entry function.")  # LOG
+
     create_url = "https://api.notion.com/v1/pages"
 
     new_page_data = {
@@ -48,17 +50,58 @@ def create_journal_entry(date, title, entry, grammar_fixes, emotional_state):
         }
     }
 
+    print("📝 Sending data to Notion:", new_page_data)  # LOG
+
     response = requests.post(create_url, headers=headers, json=new_page_data)
+
+    print("📬 Notion response status:", response.status_code)  # LOG
 
     if response.status_code in [200, 201]:
         print("✅ Journal entry created successfully.")
         return {"message": "✅ Journal entry created successfully."}
     else:
-        # Raise an error so it shows in Render logs and gets returned to GPT
+        print("❌ Failed to create entry:", response.status_code, response.text)  # LOG
         raise HTTPException(
             status_code=response.status_code,
             detail=f"Failed to create entry. Notion response: {response.text}"
         )
+
+
+# def create_journal_entry(date, title, entry, grammar_fixes, emotional_state):
+#     create_url = "https://api.notion.com/v1/pages"
+
+#     new_page_data = {
+#         "parent": { "database_id": DATABASE_ID },
+#         "properties": {
+#             "Entries": {
+#                 "title": [{ "text": { "content": title } }]
+#             },
+#             "Date": {
+#                 "date": { "start": date }
+#             },
+#             "Entry": {
+#                 "rich_text": [{ "text": { "content": entry } }]
+#             },
+#             "Grammer Fixes": {
+#                 "rich_text": [{ "text": { "content": grammar_fixes } }]
+#             },
+#             "Emotional State": {
+#                 "select": { "name": emotional_state }
+#             }
+#         }
+#     }
+
+#     response = requests.post(create_url, headers=headers, json=new_page_data)
+
+#     if response.status_code in [200, 201]:
+#         print("✅ Journal entry created successfully.")
+#         return {"message": "✅ Journal entry created successfully."}
+#     else:
+#         # Raise an error so it shows in Render logs and gets returned to GPT
+#         raise HTTPException(
+#             status_code=response.status_code,
+#             detail=f"Failed to create entry. Notion response: {response.text}"
+#         )
 
 
 # def create_journal_entry(date, title, entry, grammar_fixes, emotional_state):
