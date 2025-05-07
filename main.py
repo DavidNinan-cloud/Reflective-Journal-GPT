@@ -34,7 +34,7 @@ def create_journal_entry(date, entry, grammar_fixes, emotional_state):
             "Entry": {
                 "rich_text": [{ "text": { "content": entry } }]
             },
-            "Grammar Fixes": {
+            "Grammer Fixes": {
                 "rich_text": [{ "text": { "content": grammar_fixes } }]
             },
             "Emotional State": {
