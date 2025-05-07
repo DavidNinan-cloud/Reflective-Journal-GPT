@@ -55,8 +55,6 @@ def create_journal_entry(date, title, entry, grammar_fixes, emotional_state):
     else:
         print("❌ Failed to create entry:", response.status_code, response.text)
 
-
-# Example usage
 # Example usage
 create_journal_entry(
     date="2025-05-05",
@@ -72,8 +70,41 @@ create_journal_entry(
 def read_root():
     return {"message": "Reflective Journal GPT API is running with validation!"}
 
+
+# ----- FastAPI route -----
+
 @app.post("/create_journal_entry")
 def post_journal(entry: JournalEntry):
+    allowed_states = ["Motivated", "Happy", "Neutral", "Sad", "Tired"]
+    if entry.emotional_state not in allowed_states:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Emotional State must be one of: {', '.join(allowed_states)}"
+        )
+
+    response = create_journal_entry(
+        date=entry.date,
+        title=entry.title,
+        entry=entry.entry,
+        grammar_fixes=entry.grammar_fixes,
+        emotional_state=entry.emotional_state
+    )
+
+    if response.status_code in [200, 201]:
+        return {"message": "✅ Journal entry created successfully."}
+    else:
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=f"Failed to create entry. Notion response: {response.text}"
+        )
+
+@app.get("/")
+def read_root():
+    return {"message": "Reflective Journal GPT API is running with validation!"}
+
+
+# @app.post("/create_journal_entry")
+# def post_journal(entry: JournalEntry):
     allowed_states = ["Motivated", "Happy", "Neutral", "Sad", "Tired"]  # Match your Notion options
     if entry.emotional_state not in allowed_states:
         raise HTTPException(
