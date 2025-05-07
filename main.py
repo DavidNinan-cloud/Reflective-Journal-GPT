@@ -55,14 +55,14 @@ def create_journal_entry(date, title, entry, grammar_fixes, emotional_state):
     else:
         print("❌ Failed to create entry:", response.status_code, response.text)
 
-# Example usage
-create_journal_entry(
-    date="2025-05-05",
-    title="Render test 1 - First Successful API Entry",
-    entry="Testing 1 I finally got the Notion integration to work perfectly through Colab.",
-    grammar_fixes="No major issues.",
-    emotional_state="Motivated"
-)
+# # Example usage
+# create_journal_entry(
+#     date="2025-05-05",
+#     title="Render test 1 - First Successful API Entry",
+#     entry="Testing 1 I finally got the Notion integration to work perfectly through Colab.",
+#     grammar_fixes="No major issues.",
+#     emotional_state="Motivated"
+# )
 
 
 # ----- FastAPI model -----
