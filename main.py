@@ -168,6 +168,27 @@ def post_journal(entry: JournalEntry):
             detail=f"Emotional State must be one of: {', '.join(allowed_states)}"
         )
 
+    result = create_journal_entry(
+        date=entry.date,
+        title=entry.title,
+        entry=entry.entry,
+        grammar_fixes=entry.grammar_fixes,
+        emotional_state=entry.emotional_state
+    )
+
+    return result
+
+
+
+# @app.post("/create_journal_entry")
+# def post_journal(entry: JournalEntry):
+    allowed_states = ["Motivated", "Happy", "Neutral", "Sad", "Tired"]
+    if entry.emotional_state not in allowed_states:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Emotional State must be one of: {', '.join(allowed_states)}"
+        )
+
     response = create_journal_entry(
         date=entry.date,
         title=entry.title,
