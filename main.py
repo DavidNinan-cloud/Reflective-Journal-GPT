@@ -22,12 +22,15 @@ headers = {
 }
 
 
-def create_journal_entry(date, entry, grammar_fixes, emotional_state):
+def create_journal_entry(date, title, entry, grammar_fixes, emotional_state):
     create_url = "https://api.notion.com/v1/pages"
 
     new_page_data = {
         "parent": { "database_id": DATABASE_ID },
         "properties": {
+            "Entries": {  # Title property
+                "title": [{ "text": { "content": title } }]
+            },
             "Date": {
                 "date": { "start": date }
             },
@@ -44,15 +47,19 @@ def create_journal_entry(date, entry, grammar_fixes, emotional_state):
     }
 
     response = requests.post(create_url, headers=headers, json=new_page_data)
-    if response.status_code == 200 or response.status_code == 201:
-        print("Journal entry created successfully.")
+    if response.status_code in [200, 201]:
+        print("✅ Journal entry created successfully.")
     else:
-        print("Failed to create entry:", response.status_code, response.text)
+        print("❌ Failed to create entry:", response.status_code, response.text)
 
+
+# Example usage
 # Example usage
 create_journal_entry(
     date="2025-05-05",
-    entry="Today I set up my Notion integration!",
-    grammar_fixes="No issues found.",
-    emotional_state="Excited"
+    title="Render test - First Successful API Entry",
+    entry="Today I finally got the Notion integration to work perfectly through Colab.",
+    grammar_fixes="No major issues.",
+    emotional_state="Motivated"
 )
+
