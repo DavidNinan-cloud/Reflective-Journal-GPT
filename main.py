@@ -24,14 +24,13 @@ headers = {
     "Notion-Version": "2022-06-28"
 }
 
-
 def create_journal_entry(date, title, entry, grammar_fixes, emotional_state):
     create_url = "https://api.notion.com/v1/pages"
 
     new_page_data = {
         "parent": { "database_id": DATABASE_ID },
         "properties": {
-            "Entries": {  # Title property
+            "Entries": {
                 "title": [{ "text": { "content": title } }]
             },
             "Date": {
@@ -50,10 +49,47 @@ def create_journal_entry(date, title, entry, grammar_fixes, emotional_state):
     }
 
     response = requests.post(create_url, headers=headers, json=new_page_data)
+
     if response.status_code in [200, 201]:
         print("✅ Journal entry created successfully.")
+        return {"message": "✅ Journal entry created successfully."}
     else:
-        print("❌ Failed to create entry:", response.status_code, response.text)
+        # Raise an error so it shows in Render logs and gets returned to GPT
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=f"Failed to create entry. Notion response: {response.text}"
+        )
+
+
+# def create_journal_entry(date, title, entry, grammar_fixes, emotional_state):
+#     create_url = "https://api.notion.com/v1/pages"
+
+#     new_page_data = {
+#         "parent": { "database_id": DATABASE_ID },
+#         "properties": {
+#             "Entries": {  # Title property
+#                 "title": [{ "text": { "content": title } }]
+#             },
+#             "Date": {
+#                 "date": { "start": date }
+#             },
+#             "Entry": {
+#                 "rich_text": [{ "text": { "content": entry } }]
+#             },
+#             "Grammer Fixes": {
+#                 "rich_text": [{ "text": { "content": grammar_fixes } }]
+#             },
+#             "Emotional State": {
+#                 "select": { "name": emotional_state }
+#             }
+#         }
+#     }
+
+#     response = requests.post(create_url, headers=headers, json=new_page_data)
+#     if response.status_code in [200, 201]:
+#         print("✅ Journal entry created successfully.")
+#     else:
+#         print("❌ Failed to create entry:", response.status_code, response.text)
 
 # # Example usage
 # create_journal_entry(
