@@ -1,0 +1,64 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Reflective Journal GPT API",
+    "version": "1.0"
+  },
+  "paths": {
+    "/create_journal_entry": {
+      "post": {
+        "operationId": "createJournalEntry",
+        "summary": "Create a new journal entry in Notion.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "date": {
+                    "type": "string",
+                    "description": "Date of the journal entry (YYYY-MM-DD)."
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Title of the journal entry."
+                  },
+                  "entry": {
+                    "type": "string",
+                    "description": "The journal text."
+                  },
+                  "grammar_fixes": {
+                    "type": "string",
+                    "description": "Clarifications or grammar fixes."
+                  },
+                  "emotional_state": {
+                    "type": "string",
+                    "description": "Emotional state such as Motivated, Happy, Neutral, Sad, or Tired."
+                  }
+                },
+                "required": [
+                  "date",
+                  "title",
+                  "entry",
+                  "grammar_fixes",
+                  "emotional_state"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Journal entry created successfully."
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://reflective-journal-gpt.onrender.com"
+    }
+  ]
+}
