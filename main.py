@@ -132,6 +132,7 @@ def read_root():
 
 
 
+
 @app.get("/search_logic")
 def search_logic(query: str):
     """GPT route to find logic in PGsql and return a direct Notion link."""
@@ -294,8 +295,52 @@ def update_docs(page_id: str, entry: SoftwareDocEntry):
     else:
         raise HTTPException(status_code=response.status_code, detail=f"Notion Update Failed: {response.text}")
     
-
-
+@app.get("/get_page_content/{page_id}")
+def get_page_content(page_id: str):
+    """
+    Fetches the actual text content and code blocks from a Notion page.
+    This is used when the GPT needs deeper technical details than the PGSQL summary.
+    """
+    print(f"📖 Reading full content for page: {page_id}")
+    
+    # Notion pages are composed of blocks; we need to fetch the 'children' (content)
+    blocks_url = f"https://api.notion.com/v1/blocks/{page_id}/children"
+    
+    response = requests.get(blocks_url, headers=headers)
+    
+    if response.status_code == 200:
+        blocks = response.json().get("results", [])
+        content_output = []
+        
+        for block in blocks:
+            block_type = block.get("type")
+            
+            # Handle standard text blocks
+            if block_type in ["paragraph", "heading_1", "heading_2", "heading_3"]:
+                rich_text = block.get(block_type, {}).get("rich_text", [])
+                text = "".join([t.get("plain_text", "") for t in rich_text])
+                if text:
+                    content_output.append(text)
+            
+            # Handle specialized code blocks
+            elif block_type == "code":
+                code_text = "".join([t.get("plain_text", "") for t in block["code"]["rich_text"]])
+                language = block["code"].get("language", "text")
+                content_output.append(f"```{language}\n{code_text}\n```")
+        
+        # Combine all extracted blocks into one string
+        full_content = "\n\n".join(content_output)
+        
+        if not full_content:
+            return {"content": "This page appears to be empty."}
+            
+        return {"content": full_content}
+    else:
+        print(f"❌ Notion Read Error: {response.status_code} - {response.text}")
+        raise HTTPException(
+            status_code=response.status_code, 
+            detail=f"Failed to read Notion content: {response.text}"
+        )
 
 
 
