@@ -137,25 +137,34 @@ def search_logic(query: str):
     """GPT route to find logic in PGsql and return a direct Notion link."""
     db = SessionLocal()
     # Searches for keywords in title, summary, or code_details
-    results = db.query(DocEntry).filter(
-        DocEntry.title.ilike(f"%{query}%") | 
-        DocEntry.summary.ilike(f"%{query}%") |
-        DocEntry.code_details.ilike(f"%{query}%")
-    ).all()
-    db.close()
+    try:
+        results = db.query(DocEntry).filter(
+            DocEntry.title.ilike(f"%{query}%") | 
+            DocEntry.summary.ilike(f"%{query}%") |
+            DocEntry.code_details.ilike(f"%{query}%") |
+            DocEntry.project_status.ilike(f"%{query}%")
+        ).all()
+        db.close()
 
-    formatted = []
-    for r in results:
-        # Notion IDs in URLs should not have dashes
-        clean_id = r.notion_page_id.replace("-", "")
-        formatted.append({
-            "title": r.title,
-            "notion_url": f"https://notion.so/{clean_id}",
-            "status": r.project_status,
-            "created_at": r.created_at
-        })
-    return {"matches": formatted}
-
+        formatted = []
+        for r in results:
+            
+            # print("results",r)
+            # Notion IDs in URLs should not have dashes
+            clean_id = r.notion_page_id.replace("-", "")
+            formatted.append({
+                "title": r.title,
+                "notion_url": f"https://notion.so/{clean_id}",
+                "status": r.project_status,
+                "created_at": r.created_at
+            })
+        return {"matches": formatted}
+        
+    except Exception as e:
+        print(f"❌ Search Error: {e}")
+        raise HTTPException(status_code=500, detail="Internal Search Error")
+    finally:
+        db.close()
 
 
 @app.post("/create_documentation")
@@ -171,41 +180,128 @@ def post_docs(entry: SoftwareDocEntry):
         project_status=entry.project_status
     )
 
-
 @app.post("/sync_databases")
 def sync_notion_to_pgsql():
-    """Fetches all entries from Notion and updates local PGsql if they differ."""
+    """
+    1. Fetches all active pages from Notion.
+    2. Updates/Creates them in PostgreSQL.
+    3. Deletes rows from PostgreSQL if they no longer exist in Notion.
+    """
+    print("🔄 Starting full database synchronization...")
     query_url = f"https://api.notion.com/v1/databases/{DATABASE_ID}/query"
-    res = requests.post(query_url, headers=headers)
-    pages = res.json().get("results", [])
-
+    
+    # 1. Fetch all active pages from Notion
+    response = requests.post(query_url, headers=headers)
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail="Failed to fetch from Notion")
+    
+    notion_pages = response.json().get("results", [])
+    active_notion_ids = [page["id"] for page in notion_pages] # Collect active IDs
+    
     db = SessionLocal()
-    for page in pages:
-        p_id = page["id"]
-        props = page["properties"]
-        
-        # Extract the current values from Notion
-        title = props["Title"]["title"][0]["text"]["content"]
-        status = props["Project Status"]["select"]["name"]
-        
-        # Update or Create in PostgreSQL
-        existing = db.query(DocEntry).filter(DocEntry.notion_page_id == p_id).first()
-        if existing:
-            existing.title = title
-            existing.project_status = status
-        else:
-            # Add if it's a completely new page created manually in Notion
-            print('props',props)
-            new_entry = DocEntry(
-                notion_page_id=p_id,
-                notion_database_id=DATABASE_ID,
-                title=title,
-                summary= props["Summary"]["rich_text"][0]["text"]["content"],
-                code_details= props["Code Details"]["rich_text"][0]["text"]["content"],
-                project_status=status
-            )
-            db.add(new_entry)
+    try:
+        # 2. Update or Create logic
+        for page in notion_pages:
+            p_id = page["id"]
+            props = page["properties"]
             
-    db.commit()
-    db.close()
-    return {"message": "Sync complete"}
+            # Helper to extract text safely (handles empty fields)
+            title = props.get("Title", {}).get("title", [{}])[0].get("text", {}).get("content", "Untitled")
+            
+            summary_list = props.get("Summary", {}).get("rich_text", [])
+            summary_text = summary_list[0]["text"]["content"] if summary_list else ""
+            
+            code_list = props.get("Code Details", {}).get("rich_text", [])
+            code_text = code_list[0]["text"]["content"] if code_list else ""
+            
+            status = props.get("Project Status", {}).get("select", {}).get("name", "Development")
+
+            existing = db.query(DocEntry).filter(DocEntry.notion_page_id == p_id).first()
+            if existing:
+                existing.title = title
+                existing.summary = summary_text
+                existing.code_details = code_text
+                existing.project_status = status
+            else:
+                new_entry = DocEntry(
+                    notion_page_id=p_id,
+                    notion_database_id=DATABASE_ID,
+                    title=title,
+                    summary=summary_text,
+                    code_details=code_text,
+                    project_status=status
+                )
+                db.add(new_entry)
+
+        # 3. DELETE rows from PGSQL that are NOT in the active_notion_ids list
+        deleted_count = db.query(DocEntry).filter(~DocEntry.notion_page_id.in_(active_notion_ids)).delete(synchronize_session=False)
+        
+        db.commit()
+        print(f"✅ Sync complete. Updated {len(active_notion_ids)} items. Pruned {deleted_count} deleted items.")
+        return {
+            "status": "Sync Complete",
+            "active_items": len(active_notion_ids),
+            "pruned_items": deleted_count
+        }
+
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Sync Failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
+@app.patch("/update_documentation/{page_id}")
+def update_docs(page_id: str, entry: SoftwareDocEntry):
+    """Updates an existing Notion page and synchronizes the change to PGSQL."""
+    
+    # 1. Update Notion
+    update_url = f"https://api.notion.com/v1/pages/{page_id}"
+    update_data = {
+        "properties": {
+            "Title": {"title": [{"text": {"content": entry.title}}]},
+            "Summary": {"rich_text": [{"text": {"content": entry.summary}}]},
+            "Code Details": {"rich_text": [{"text": {"content": entry.code_details}}]},
+            "Project Status": {"select": {"name": entry.project_status}}
+        }
+    }
+    
+    response = requests.patch(update_url, headers=headers, json=update_data)
+    
+    if response.status_code == 200:
+        # 2. Update Local PostgreSQL
+        db = SessionLocal()
+        try:
+            existing_record = db.query(DocEntry).filter(DocEntry.notion_page_id == page_id).first()
+            if existing_record:
+                existing_record.title = entry.title
+                existing_record.summary = entry.summary
+                existing_record.code_details = entry.code_details
+                existing_record.project_status = entry.project_status
+                # updated_at is handled automatically by SQLAlchemy 'onupdate'
+                db.commit()
+                print(f"✅ PGSQL mirrored update for page: {page_id}")
+            else:
+                print(f"⚠️ Page {page_id} found in Notion but missing in local PGSQL.")
+        except Exception as e:
+            print(f"❌ DB Sync Error: {e}")
+            db.rollback()
+        finally:
+            db.close()
+            
+        return {"message": "Update successful in both Notion and PGSQL"}
+    else:
+        raise HTTPException(status_code=response.status_code, detail=f"Notion Update Failed: {response.text}")
+    
+
+
+
+
+
+
+if __name__ == "__main__":
+    import uvicorn
+    # Render provides a $PORT environment variable automatically
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
