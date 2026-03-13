@@ -1,64 +1,157 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Reflective Journal GPT API",
-    "version": "1.0"
+    "title": "LogicMap: Software Documentation API",
+    "description": "API for creating, searching, reading, and syncing software documentation between Notion and a local PostgreSQL database.",
+    "version": "1.1.0"
   },
+  "servers": [
+    {
+      "url": "https://reflective-journal-gpt.onrender.com",
+      "description": "Production server on Render"
+    }
+  ],
   "paths": {
-    "/create_journal_entry": {
+    "/create_documentation": {
       "post": {
-        "operationId": "createJournalEntry",
-        "summary": "Create a new journal entry in Notion.",
+        "operationId": "createDocumentation",
+        "summary": "Create a new documentation entry in Notion and mirror to PGSQL.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "date": {
-                    "type": "string",
-                    "description": "Date of the journal entry (YYYY-MM-DD)."
-                  },
-                  "title": {
-                    "type": "string",
-                    "description": "Title of the journal entry."
-                  },
-                  "entry": {
-                    "type": "string",
-                    "description": "The journal text."
-                  },
-                  "grammar_fixes": {
-                    "type": "string",
-                    "description": "Clarifications or grammar fixes."
-                  },
-                  "emotional_state": {
-                    "type": "string",
-                    "description": "Emotional state such as Motivated, Happy, Neutral, Sad, or Tired."
-                  }
-                },
-                "required": [
-                  "date",
-                  "title",
-                  "entry",
-                  "grammar_fixes",
-                  "emotional_state"
-                ]
+                "$ref": "#/components/schemas/SoftwareDocEntry"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Journal entry created successfully."
+            "description": "Success"
+          }
+        }
+      }
+    },
+    "/update_documentation/{page_id}": {
+      "patch": {
+        "operationId": "updateDocumentation",
+        "parameters": [
+          {
+            "description": "The ID of the page to update.",
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SoftwareDocEntry"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Update successful"
+          }
+        },
+        "summary": "Update an existing documentation page in both Notion and PGSQL."
+      }
+    },
+    "/get_page_content/{page_id}": {
+      "get": {
+        "operationId": "readPageContent",
+        "parameters": [
+          {
+            "description": "The unique ID of the Notion page to read.",
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Content retrieved successfully"
+          }
+        },
+        "summary": "Fetch the full technical content and code blocks from a specific Notion page."
+      }
+    },
+    "/search_logic": {
+      "get": {
+        "operationId": "searchDocumentation",
+        "summary": "Search local database for code logic and get Notion links.",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matches found"
+          }
+        }
+      }
+    },
+    "/sync_databases": {
+      "post": {
+        "operationId": "syncDatabases",
+        "summary": "Sync Notion and PGSQL. Deletes local rows if Notion page was deleted.",
+        "responses": {
+          "200": {
+            "description": "Sync complete"
           }
         }
       }
     }
   },
-  "servers": [
-    {
-      "url": "https://reflective-journal-gpt.onrender.com"
+  "components": {
+    "schemas": {
+      "SoftwareDocEntry": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "code_details": {
+            "type": "string"
+          },
+          "project_status": {
+            "type": "string",
+            "enum": [
+              "Development",
+              "Testing",
+              "Stable",
+              "Blocked",
+              "Deprioritized"
+            ]
+          }
+        },
+        "required": [
+          "title",
+          "summary",
+          "code_details",
+          "project_status"
+        ]
+      }
     }
-  ]
+  }
 }
